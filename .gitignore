@@ -1,0 +1,14 @@
+# Target Files
+/target
+
+# logs
+/logs
+
+/docs
+
+# Eclipse related files
+/.classpath
+/.project
+/.settings
+/.factorypath
+/.history
