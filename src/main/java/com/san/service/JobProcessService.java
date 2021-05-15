@@ -1,5 +1,6 @@
 package com.san.service;
 
+import java.io.File;
 import java.io.IOException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -20,6 +21,7 @@ import com.fasterxml.jackson.databind.JsonMappingException;
 import com.san.to.CowinAppointmentCenter;
 import com.san.to.CowinAppointmentResponse;
 import com.san.to.CowinAppointmentSession;
+import com.san.util.CommonUtil;
 
 @Component
 public class JobProcessService {
@@ -32,10 +34,21 @@ public class JobProcessService {
 	final long sleepTime = 30 * 1000;
 	final SimpleDateFormat dateFormatter = new SimpleDateFormat("dd-MM-yyyy", Locale.ENGLISH);
 
-	@Value("${pinCodes}")
+	@Value("${cowin.utility.pinCodes}")
 	public String pinCodesStr;
 
+	@Value("${cowin.utility.nixExecutableFile}")
+	public String nixExecutable;
+
+	@Value("${cowin.utility.winExecutableFile}")
+	public String winExecutable;
+
+	@Value("${cowin.utility.onlyFreeDosage}")
+	public boolean onlyFreeDosage;
+
 	private List<Integer> pinCodes = new ArrayList<>();
+
+	private File executableFile;
 
 	@Autowired
 	EmailService emailService;
@@ -56,6 +69,23 @@ public class JobProcessService {
 					}
 				}
 			}
+		}
+
+		try {
+			File file = null;
+			if (CommonUtil.isWindows()) {
+				file = new File(winExecutable);
+			} else {
+				file = new File(nixExecutable);
+			}
+			if (file != null && file.exists() && file.isFile()) {
+				// file.canExecute()
+				executableFile = file;
+			} else {
+				logger.info("Either file not present or not a valid executable : " + file.getAbsolutePath());
+			}
+		} catch (Exception e) {
+			logger.error("Exception occurred while initialization", e);
 		}
 	}
 
@@ -105,7 +135,7 @@ public class JobProcessService {
 			List<CowinAppointmentSession> sessions = center.getSessions();
 			if (sessions != null && sessions.size() > 0) {
 				for (CowinAppointmentSession session : sessions) {
-					if (session.getMin_age_limit() < 45 && session.getAvailable_capacity() > 0) {
+					if (session.getMin_age_limit() < 45 && session.getAvailable_capacity() > 0 && (!onlyFreeDosage || center.getFee_type().equalsIgnoreCase("Free"))) {
 						center.addAvailableSession(session);
 					}
 				}

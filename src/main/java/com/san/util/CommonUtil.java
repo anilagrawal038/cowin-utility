@@ -1,5 +1,6 @@
 package com.san.util;
 
+import java.io.BufferedInputStream;
 import java.io.BufferedReader;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -17,12 +18,15 @@ import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.lang.reflect.ParameterizedType;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Base64;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Queue;
 import java.util.Set;
+import java.util.concurrent.TimeUnit;
 
 import javax.xml.bind.JAXBContext;
 import javax.xml.bind.JAXBElement;
@@ -429,6 +433,154 @@ public class CommonUtil {
 			}
 		}
 		return obj;
+	}
+
+	public static boolean isWindows() {
+		String osName = System.getProperty("os.name");
+		if (osName != null && !osName.isEmpty() && osName.toLowerCase().indexOf("windows") > -1) {
+			return true;
+		}
+		return false;
+	}
+
+	public static String executeCommand(String shellCommand) {
+		String arg1, arg2, line = null, res = null;
+		if (isWindows()) {
+			arg1 = "cmd.exe";
+			arg2 = "/C";
+		} else {
+			arg1 = "bash";
+			arg2 = "-c";
+		}
+
+		ProcessBuilder startServiceProcessBuilder = new ProcessBuilder(arg1, arg2, shellCommand);
+		Process p;
+		try {
+			p = startServiceProcessBuilder.start();
+			p.waitFor(5, TimeUnit.SECONDS);
+		} catch (IOException | InterruptedException e) {
+			logger.error("Exception occurred while executing command : " + shellCommand + "", e);
+			return res;
+		}
+
+		InputStreamReader tempReader = new InputStreamReader(new BufferedInputStream(p.getInputStream()));
+		final BufferedReader reader = new BufferedReader(tempReader);
+		InputStreamReader tempErrReader = new InputStreamReader(new BufferedInputStream(p.getErrorStream()));
+		final BufferedReader errReader = new BufferedReader(tempErrReader);
+
+		try {
+			logger.info("Executed command : " + shellCommand + " :: Console Output : \n");
+			while ((line = reader.readLine()) != null) {
+				line = line.trim();
+				if (!line.isEmpty()) {
+					res = line;
+					logger.info(line);
+				}
+
+			}
+		} catch (IOException e) {
+			logger.info("Executed command : " + shellCommand + " :: Console Output Line : " + line);
+			logger.trace("Exception occurred while executing command : " + shellCommand + " ", e);
+		}
+
+		try {
+			logger.info("Executed command : " + shellCommand + " :: Error Output : \n");
+			while ((line = errReader.readLine()) != null) {
+				line = line.trim();
+				if (!line.isEmpty()) {
+					logger.error(line);
+				}
+
+			}
+		} catch (IOException e) {
+			logger.error("Exception occurred while executing command : " + shellCommand + "", e);
+		}
+		try {
+			reader.close();
+		} catch (Exception e) {
+		}
+		try {
+			tempReader.close();
+		} catch (Exception e) {
+		}
+		try {
+			errReader.close();
+		} catch (Exception e) {
+		}
+		try {
+			tempErrReader.close();
+		} catch (Exception e) {
+		}
+		return res;
+	}
+
+	// Find output messages at index 0 & error messages at index 1 in returned list
+	public static List<List<String>> executeCommandWithOutput(String shellCommand) {
+		String arg1, arg2, line = null;
+		List<String> outputLines = new ArrayList<String>();
+		List<String> errLines = new ArrayList<String>();
+		if (isWindows()) {
+			arg1 = "cmd.exe";
+			arg2 = "/C";
+		} else {
+			arg1 = "bash";
+			arg2 = "-c";
+		}
+		logger.debug("Executing command : " + shellCommand);
+		ProcessBuilder startServiceProcessBuilder = new ProcessBuilder(arg1, arg2, shellCommand);
+		Process p;
+		try {
+			p = startServiceProcessBuilder.start();
+			p.waitFor(3, TimeUnit.SECONDS);
+		} catch (IOException | InterruptedException e) {
+			logger.error("Exception occurred while executing command : " + shellCommand + "", e);
+			return null;
+		}
+
+		InputStreamReader tempReader = new InputStreamReader(new BufferedInputStream(p.getInputStream()));
+		final BufferedReader reader = new BufferedReader(tempReader);
+		InputStreamReader tempErrReader = new InputStreamReader(new BufferedInputStream(p.getErrorStream()));
+		final BufferedReader errReader = new BufferedReader(tempErrReader);
+
+		try {
+			while ((line = reader.readLine()) != null) {
+				line = line.trim();
+				if (!line.isEmpty()) {
+					outputLines.add(line);
+				}
+			}
+		} catch (IOException e) {
+			logger.info("Executed command : " + shellCommand + " :: Console Output Line : " + line);
+			logger.trace("Exception occurred while executing command : " + shellCommand + " ", e);
+		}
+
+		try {
+			while ((line = errReader.readLine()) != null) {
+				line = line.trim();
+				if (!line.isEmpty()) {
+					errLines.add(line);
+				}
+			}
+		} catch (IOException e) {
+			logger.trace("Exception occurred while executing command : " + shellCommand + "", e);
+		}
+		try {
+			reader.close();
+		} catch (Exception e) {
+		}
+		try {
+			tempReader.close();
+		} catch (Exception e) {
+		}
+		try {
+			errReader.close();
+		} catch (Exception e) {
+		}
+		try {
+			tempErrReader.close();
+		} catch (Exception e) {
+		}
+		return Arrays.asList(outputLines, errLines);
 	}
 
 }
